@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forge — Dev Workspace</title>
+<style>
+  :root {
+    --bg: #10141a;
+    --surface: #161b23;
+    --surface-2: #1e2530;
+    --surface-3: #262f3b;
+    --border: #2a323d;
+    --text: #e8ebf0;
+    --text-dim: #8d97a5;
+    --text-faint: #5c6472;
+    --accent: #c98a4b;
+    --accent-soft: rgba(201,138,75,0.14);
+    --accent-hover: #dc9a58;
+    --env-dev: #5b9bd5;
+    --env-dev-soft: rgba(91,155,213,0.14);
+    --env-prod: #d5735b;
+    --env-prod-soft: rgba(213,115,91,0.14);
+    --env-local: #6fb37a;
+    --env-local-soft: rgba(111,179,122,0.14);
+    --danger: #d5735b;
+    --radius: 7px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+  body { display: flex; min-height: 100vh; }
+  button { font-family: inherit; cursor: pointer; }
+  input, select, textarea { font-family: inherit; }
+
+  /* ---------- Login / Setup ---------- */
+  #authScreen {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(201,138,75,0.06), transparent 45%),
+      radial-gradient(circle at 80% 80%, rgba(91,155,213,0.05), transparent 45%),
+      var(--bg);
+    z-index: 100;
+  }
+  .auth-card {
+    width: 360px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 32px 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .auth-mark { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+  .auth-mark .dot { width: 9px; height: 9px; border-radius: 2px; background: var(--accent); transform: rotate(45deg); flex-shrink: 0; }
+  .auth-mark span { font-size: 17px; font-weight: 600; letter-spacing: 0.2px; }
+  .auth-card h1 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+  .auth-card p.sub { color: var(--text-dim); font-size: 12.5px; margin: 0 0 22px; line-height: 1.5; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+  .field input {
+    width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius); padding: 9px 11px; font-size: 13.5px; outline: none;
+    transition: border-color .15s;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .btn {
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+    padding: 9px 14px; border-radius: var(--radius); font-size: 13px; font-weight: 500;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .btn:hover { background: var(--surface-3); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #1a1206; font-weight: 600; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-block { width: 100%; }
+  .btn-danger { color: var(--danger); }
+  .auth-error {
+    background: rgba(213,115,91,0.1); border: 1px solid rgba(213,115,91,0.35); color: #e8a291;
+    font-size: 12.5px; padding: 8px 10px; border-radius: var(--radius); margin-bottom: 14px; display: none;
+  }
+  .auth-toggle { text-align: center; margin-top: 16px; font-size: 12px; color: var(--text-faint); }
+  .auth-toggle a { color: var(--accent); text-decoration: none; cursor: pointer; }
+
+  /* ---------- App shell ---------- */
+  #app { display: none; width: 100%; min-height: 100vh; }
+  #app.visible { display: flex; }
+
+  .sidebar {
+    width: 235px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border);
+    padding: 18px 12px; display: flex; flex-direction: column;
+  }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 2px 6px 16px; }
+  .brand .dot { width: 8px; height: 8px; border-radius: 2px; background: var(--accent); transform: rotate(45deg); flex-shrink: 0; }
+  .brand span { font-weight: 600; font-size: 15px; }
+
+  /* ---------- Project Switcher ---------- */
+  .project-box {
+    margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); position: relative;
+  }
+  .project-label-row {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; padding: 0 4px;
+  }
+  .project-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.8px; color: var(--text-faint);
+  }
+  .project-quick-add {
+    background: transparent; border: none; color: var(--text-dim); padding: 2px 4px;
+    border-radius: 4px; display: flex; align-items: center; cursor: pointer; font-size: 12px;
+  }
+  .project-quick-add:hover { color: var(--accent); background: var(--surface-3); }
+  .project-dropdown-wrap { position: relative; }
+  .project-select-btn {
+    width: 100%; display: flex; align-items: center; gap: 8px; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; color: var(--text);
+    font-size: 13px; font-weight: 500; transition: border-color .15s, background .15s;
+  }
+  .project-select-btn:hover { border-color: var(--accent); background: var(--surface-3); }
+  .project-folder-icon { width: 14px; height: 14px; color: var(--accent); flex-shrink: 0; }
+  .project-select-name { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .project-caret { width: 13px; height: 13px; color: var(--text-faint); transition: transform .15s ease; flex-shrink: 0; }
+  .project-dropdown-wrap.open .project-caret { transform: rotate(180deg); }
+
+  .project-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; width: 100%; min-width: 220px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.5); z-index: 50; display: none; flex-direction: column;
+    overflow: hidden; animation: menuFade .15s ease;
+  }
+  @keyframes menuFade {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .project-dropdown-wrap.open .project-menu { display: flex; }
+  .project-menu-search { padding: 7px 8px; border-bottom: 1px solid var(--border); }
+  .project-menu-search input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 5px;
+    padding: 6px 8px; color: var(--text); font-size: 12px; outline: none;
+  }
+  .project-menu-search input:focus { border-color: var(--accent); }
+  .project-menu-list { max-height: 220px; overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+  .project-item {
+    display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 5px;
+    background: transparent; border: none; color: var(--text-dim); font-size: 12.5px;
+    cursor: pointer; text-align: left; width: 100%; position: relative; transition: background .12s, color .12s;
+  }
+  .project-item:hover { background: var(--surface-3); color: var(--text); }
+  .project-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .project-item-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .project-item-count {
+    font-size: 10.5px; background: var(--surface-3); color: var(--text-faint); padding: 1px 6px; border-radius: 10px;
+  }
+  .project-item.active .project-item-count { background: rgba(201,138,75,0.2); color: var(--accent); }
+  .project-item-actions { display: none; gap: 2px; margin-left: 2px; }
+  .project-item:hover .project-item-actions { display: flex; }
+  .project-item-action-btn {
+    background: transparent; border: none; color: var(--text-dim); padding: 2px 3px;
+    border-radius: 3px; display: flex; align-items: center; cursor: pointer;
+  }
+  .project-item-action-btn:hover { color: var(--text); background: var(--surface); }
+  .project-item-action-btn.btn-del:hover { color: var(--danger); }
+  .project-menu-foot { padding: 6px 8px; border-top: 1px solid var(--border); background: var(--surface); }
+  .project-menu-btn {
+    width: 100%; padding: 7px 10px; border: 1px dashed var(--border); background: transparent;
+    border-radius: 5px; color: var(--accent); font-size: 12px; font-weight: 500; cursor: pointer;
+    transition: background .15s; text-align: center;
+  }
+  .project-menu-btn:hover { background: var(--accent-soft); border-color: var(--accent); }
+
+  /* ---------- Nav ---------- */
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav button {
+    display: flex; align-items: center; gap: 9px; text-align: left; width: 100%;
+    background: transparent; border: none; color: var(--text-dim); padding: 9px 10px;
+    border-radius: var(--radius); font-size: 13px; font-weight: 500;
+  }
+  .nav button svg { width: 15px; height: 15px; opacity: 0.75; flex-shrink: 0; }
+  .nav button:hover { background: var(--surface-2); color: var(--text); }
+  .nav button.active { background: var(--accent-soft); color: var(--accent); }
+  .nav button.active svg { opacity: 1; }
+  .nav-count {
+    margin-left: auto; font-size: 10.5px; color: var(--text-faint); background: var(--surface-3);
+    padding: 1px 6px; border-radius: 20px;
+  }
+  .nav button.active .nav-count { color: var(--accent); background: rgba(201,138,75,0.18); }
+
+  .sidebar-footer { margin-top: auto; display: flex; flex-direction: column; gap: 6px; }
+  .sidebar-footer button {
+    width: 100%; text-align: left; background: transparent; border: 1px solid var(--border);
+    color: var(--text-dim); padding: 7px 10px; border-radius: var(--radius); font-size: 12px;
+  }
+  .sidebar-footer button:hover { color: var(--text); border-color: var(--text-faint); }
+
+  /* ---------- Main Area ---------- */
+  .main { flex: 1; min-width: 0; padding: 24px 32px; overflow-y: auto; }
+  .main-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; gap: 20px; }
+  .project-breadcrumbs {
+    display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-faint); margin-bottom: 5px;
+  }
+  .proj-crumb { color: var(--accent); font-weight: 600; display: flex; align-items: center; gap: 4px; }
+  .proj-crumb-sep { color: var(--border); }
+  .proj-crumb-section { color: var(--text-dim); }
+
+  .main-title-row { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; flex-wrap: wrap; }
+  .main-header h2 { font-size: 19px; font-weight: 600; margin: 0; }
+  .main-header p { font-size: 12.5px; color: var(--text-dim); margin: 0; }
+
+  .env-summary-chips { display: flex; gap: 6px; align-items: center; }
+  .summary-chip {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 2px 9px;
+    border-radius: 20px; font-weight: 500; border: 1px solid transparent;
+  }
+  .summary-chip.chip-dev { background: var(--env-dev-soft); color: var(--env-dev); border-color: rgba(91,155,213,0.3); }
+  .summary-chip.chip-prod { background: var(--env-prod-soft); color: var(--env-prod); border-color: rgba(213,115,91,0.3); }
+  .summary-chip.chip-local { background: var(--env-local-soft); color: var(--env-local); border-color: rgba(111,179,122,0.3); }
+
+  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .search-input {
+    flex: 1; min-width: 180px; background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); border-radius: var(--radius); padding: 8px 12px; font-size: 13px; outline: none;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .env-filter { display: flex; gap: 5px; background: var(--surface); border: 1px solid var(--border); padding: 3px; border-radius: var(--radius); }
+  .env-filter button {
+    border: none; background: transparent; color: var(--text-dim); padding: 6px 11px;
+    border-radius: 5px; font-size: 12px; font-weight: 500;
+  }
+  .env-filter button.active { background: var(--surface-3); color: var(--text); }
+  .env-filter button.active[data-env="dev"] { color: var(--env-dev); }
+  .env-filter button.active[data-env="prod"] { color: var(--env-prod); }
+  .env-filter button.active[data-env="local"] { color: var(--env-local); }
+
+  /* ---------- Table ---------- */
+  .table-wrap { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left; font-size: 11px; font-weight: 600; color: var(--text-faint);
+    padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--surface-2);
+    white-space: nowrap;
+  }
+  tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.015); }
+  .cell-title { font-weight: 500; }
+  .cell-sub { color: var(--text-faint); font-size: 11.5px; margin-top: 2px; }
+  .mono { font-family: var(--mono); font-size: 12.5px; }
+
+  .project-tag {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11px; background: var(--surface-3);
+    color: var(--text-dim); padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border);
+    max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .project-tag svg { width: 11px; height: 11px; color: var(--accent); flex-shrink: 0; }
+
+  /* ---------- Environment Group Headers in Table ---------- */
+  .env-group-row { background: var(--surface-2) !important; }
+  .env-group-row td { padding: 8px 14px !important; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .env-group-bar { display: flex; align-items: center; justify-content: space-between; }
+  .env-group-title { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; }
+  .env-group-count { font-size: 11px; color: var(--text-faint); font-weight: 400; }
+  .env-group-add-btn {
+    background: transparent; border: 1px dashed var(--border); color: var(--text-dim);
+    font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; transition: all .12s;
+  }
+  .env-group-add-btn:hover { color: var(--text); border-color: var(--text-dim); background: var(--surface-3); }
+
+  .empty-env-sub td { padding: 8px 14px; color: var(--text-faint); font-size: 12px; font-style: italic; background: rgba(0,0,0,0.1); }
+  .link-btn {
+    background: transparent; border: none; color: var(--accent); font-size: 11.5px;
+    padding: 0 4px; cursor: pointer; text-decoration: underline;
+  }
+
+  .secret-cell { display: flex; align-items: center; gap: 7px; }
+  .secret-val { font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.5px; color: var(--text-dim); }
+  .icon-btn {
+    background: transparent; border: none; color: var(--text-faint); padding: 4px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .icon-btn:hover { color: var(--text); background: var(--surface-3); }
+  .icon-btn svg { width: 14px; height: 14px; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600;
+    padding: 3px 9px; border-radius: 20px;
+  }
+  .badge-dev { background: var(--env-dev-soft); color: var(--env-dev); }
+  .badge-prod { background: var(--env-prod-soft); color: var(--env-prod); }
+  .badge-local { background: var(--env-local-soft); color: var(--env-local); }
+  .badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  .status-pill { font-size: 11px; padding: 2px 8px; border-radius: 20px; border: 1px solid var(--border); color: var(--text-dim); }
+  .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+
+  .priority-high { color: var(--env-prod); }
+  .priority-med { color: var(--accent); }
+  .priority-low { color: var(--text-faint); }
+
+  .task-check {
+    width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--text-faint);
+    cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent;
+  }
+  .task-check.done { background: var(--env-local); border-color: var(--env-local); }
+  .task-check.done svg { width: 10px; height: 10px; stroke: var(--bg); }
+  .task-row.done .cell-title { color: var(--text-faint); text-decoration: line-through; }
+
+  .empty-state { text-align: center; padding: 50px 20px; color: var(--text-faint); }
+  .empty-state svg { width: 34px; height: 34px; opacity: 0.35; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; margin: 0 0 14px; }
+
+  /* ---------- Modals ---------- */
+  dialog {
+    border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text);
+    padding: 0; width: 440px; max-width: 90vw;
+  }
+  dialog::backdrop { background: rgba(6,8,11,0.6); backdrop-filter: blur(2px); }
+  .modal-head { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-head h3 { font-size: 14.5px; font-weight: 600; margin: 0; }
+  .modal-head button { background: transparent; border: none; color: var(--text-faint); font-size: 18px; line-height: 1; padding: 2px; }
+  .modal-body { padding: 18px 22px; max-height: 65vh; overflow-y: auto; }
+  .modal-foot { padding: 16px 22px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+  textarea {
+    width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius); padding: 9px 11px; font-size: 13.5px; outline: none;
+    resize: vertical; min-height: 56px;
+  }
+  textarea:focus { border-color: var(--accent); }
+  .pw-field-wrap { position: relative; }
+  .pw-field-wrap input { padding-right: 34px; }
+  .pw-field-wrap .icon-btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+  .field-row { display: flex; gap: 10px; }
+  .field-row .field { flex: 1; }
+  select.env-select {
+    width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius); padding: 9px 11px; font-size: 13.5px; outline: none;
+  }
+
+  /* Settings menu */
+  .settings-menu { position: relative; }
+  .settings-panel {
+    position: absolute; bottom: calc(100% + 6px); left: 0; width: 100%; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 5px; display: none; flex-direction: column; gap: 2px;
+  }
+  .settings-panel.open { display: flex; }
+  .settings-panel button { background: transparent; border: none; color: var(--text-dim); text-align: left; padding: 7px 8px; border-radius: 5px; font-size: 12.5px; }
+  .settings-panel button:hover { background: var(--surface-3); color: var(--text); }
+  .settings-panel button.danger { color: var(--danger); }
+  #importFileInput { display: none; }
+
+  .toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--surface-3); border: 1px solid var(--border); color: var(--text);
+    padding: 9px 16px; border-radius: 8px; font-size: 12.5px; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s; z-index: 200; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+
+<!-- ============ AUTH SCREEN ============ -->
+<div id="authScreen">
+  <div class="auth-card">
+    <div class="auth-mark"><div class="dot"></div><span>Forge</span></div>
+
+    <div id="setupPane">
+      <h1>Set a master password</h1>
+      <p class="sub">This encrypts everything you store here — projects, credentials, keys, branches, tasks. It's kept only on this device, in this file's local storage. If you lose it, the data can't be recovered.</p>
+      <div class="auth-error" id="setupError"></div>
+      <div class="field"><label>Master password</label><input type="password" id="setupPw" autocomplete="new-password"></div>
+      <div class="field"><label>Confirm password</label><input type="password" id="setupPw2" autocomplete="new-password"></div>
+      <button class="btn btn-primary btn-block" id="setupBtn">Create & unlock</button>
+    </div>
+
+    <div id="loginPane" style="display:none;">
+      <h1>Welcome back</h1>
+      <p class="sub">Enter your master password to unlock your workspace.</p>
+      <div class="auth-error" id="loginError"></div>
+      <div class="field"><label>Master password</label><input type="password" id="loginPw" autocomplete="current-password"></div>
+      <button class="btn btn-primary btn-block" id="loginBtn">Unlock</button>
+      <div class="auth-toggle">Lost access? <a id="resetLink">Import a backup file</a> or <a id="wipeLink">start fresh</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <div class="sidebar">
+    <div class="brand"><div class="dot"></div><span>Forge</span></div>
+
+    <!-- Project Switcher Box -->
+    <div class="project-box">
+      <div class="project-label-row">
+        <span class="project-label">PROJECT</span>
+        <button class="project-quick-add" id="newProjectQuickBtn" title="Create new project">+ New</button>
+      </div>
+      <div class="project-dropdown-wrap" id="projectDropdownWrap">
+        <button class="project-select-btn" id="projectSelectBtn">
+          <svg class="project-folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span class="project-select-name" id="projectActiveName">All Projects</span>
+          <svg class="project-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="project-menu" id="projectMenu">
+          <div class="project-menu-search">
+            <input type="text" id="projectSearchInput" placeholder="Find project...">
+          </div>
+          <div class="project-menu-list" id="projectMenuList"></div>
+          <div class="project-menu-foot">
+            <button id="addProjectMenuBtn" class="project-menu-btn">+ New project</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nav List -->
+    <div class="nav" id="navList">
+      <button data-tab="credentials" class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Credentials <span class="nav-count" id="count-credentials">0</span>
+      </button>
+      <button data-tab="apiKeys">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7" cy="15" r="4"/><path d="M9.5 12.5 20 2M20 2h-4M20 2v4M16.5 5.5 19 8"/></svg>
+        API Keys <span class="nav-count" id="count-apiKeys">0</span>
+      </button>
+      <button data-tab="branches">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="6" r="2.3"/><circle cx="6" cy="18" r="2.3"/><circle cx="18" cy="12" r="2.3"/><path d="M6 8.3V15.7M6 8.3C6 12 9 12 12 12h3.8"/></svg>
+        Git Branches <span class="nav-count" id="count-branches">0</span>
+      </button>
+      <button data-tab="tasks">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l2 2 4-4"/><rect x="3" y="4" width="18" height="16" rx="2.5"/></svg>
+        Tomorrow <span class="nav-count" id="count-tasks">0</span>
+      </button>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="settings-menu">
+        <div class="settings-panel" id="settingsPanel">
+          <button id="exportBtn">Export backup (.json)</button>
+          <button id="importBtn">Import backup (.json)</button>
+          <button id="changePwBtn">Change master password</button>
+          <button id="wipeAllBtn" class="danger">Erase all data</button>
+        </div>
+        <button id="settingsToggle">⚙ Settings</button>
+      </div>
+      <button id="lockBtn">🔒 Lock workspace</button>
+    </div>
+    <input type="file" id="importFileInput" accept="application/json">
+  </div>
+
+  <div class="main">
+    <div class="main-header">
+      <div>
+        <div class="project-breadcrumbs" id="projectBreadcrumbs">
+          <span class="proj-crumb" id="crumbProject">All Projects</span>
+          <span class="proj-crumb-sep">/</span>
+          <span class="proj-crumb-section" id="crumbSection">Credentials</span>
+        </div>
+        <div class="main-title-row">
+          <h2 id="mainTitle">Credentials</h2>
+          <div class="env-summary-chips" id="envSummaryChips">
+            <span class="summary-chip chip-dev"><span class="badge-dot"></span><span id="summaryCountDev">0</span> Dev</span>
+            <span class="summary-chip chip-prod"><span class="badge-dot"></span><span id="summaryCountProd">0</span> Prod</span>
+            <span class="summary-chip chip-local"><span class="badge-dot"></span><span id="summaryCountLocal">0</span> Local</span>
+          </div>
+        </div>
+        <p id="mainSub">Usernames, emails and passwords across your environments.</p>
+      </div>
+      <button class="btn btn-primary" id="addBtn">+ Add credential</button>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" class="search-input" id="searchInput" placeholder="Search entries, projects, notes…">
+      <div class="env-filter" id="envFilter">
+        <button data-env="all" class="active">All</button>
+        <button data-env="dev">Dev</button>
+        <button data-env="prod">Prod</button>
+        <button data-env="local">Local</button>
+      </div>
+    </div>
+
+    <div class="table-wrap"><table><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ============ ENTRY MODAL ============ -->
+<dialog id="entryModal">
+  <div class="modal-head"><h3 id="modalTitle">Add credential</h3><button id="modalClose">×</button></div>
+  <div class="modal-body" id="modalBody"></div>
+  <div class="modal-foot">
+    <button class="btn" id="modalCancel">Cancel</button>
+    <button class="btn btn-primary" id="modalSave">Save</button>
+  </div>
+</dialog>
+
+<!-- ============ PROJECT MODAL ============ -->
+<dialog id="projectModal">
+  <div class="modal-head"><h3 id="projectModalTitle">New Project</h3><button id="projectModalClose">×</button></div>
+  <div class="modal-body">
+    <div class="auth-error" id="projectModalError"></div>
+    <div class="field">
+      <label>Project Name *</label>
+      <input id="p_name" placeholder="e.g. FOF_DLA_ADMIN_UI, Payments Service">
+    </div>
+    <div class="field">
+      <label>Description / Notes</label>
+      <textarea id="p_desc" placeholder="Brief info about this project..."></textarea>
+    </div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn" id="projectModalCancel">Cancel</button>
+    <button class="btn btn-primary" id="projectModalSave">Save Project</button>
+  </div>
+</dialog>
+
+<!-- ============ CHANGE PASSWORD MODAL ============ -->
+<dialog id="pwModal">
+  <div class="modal-head"><h3>Change master password</h3><button id="pwModalClose">×</button></div>
+  <div class="modal-body">
+    <div class="auth-error" id="pwModalError"></div>
+    <div class="field"><label>Current password</label><input type="password" id="curPw"></div>
+    <div class="field"><label>New password</label><input type="password" id="newPw"></div>
+    <div class="field"><label>Confirm new password</label><input type="password" id="newPw2"></div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn" id="pwModalCancel">Cancel</button>
+    <button class="btn btn-primary" id="pwModalSave">Update password</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* =========================================================
+     CRYPTO — everything is encrypted at rest with a key
+     derived from your master password (PBKDF2 -> AES-GCM).
+     Nothing ever leaves this browser / this file.
+  ========================================================= */
+  const VAULT_KEY = "forge_vault_v1";
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
+
+  function b64(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+  function unb64(str){ const bin = atob(str); const arr = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i); return arr; }
+  function randBytes(n){ const a = new Uint8Array(n); crypto.getRandomValues(a); return a; }
+
+  async function deriveKey(password, saltBytes){
+    const baseKey = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: saltBytes, iterations: 250000, hash: "SHA-256" },
+      baseKey, { name: "AES-GCM", length: 256 }, false, ["encrypt","decrypt"]
+    );
+  }
+
+  async function encryptJSON(obj, key){
+    const iv = randBytes(12);
+    const ct = await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, enc.encode(JSON.stringify(obj)));
+    return { iv: b64(iv), ct: b64(ct) };
+  }
+
+  async function decryptJSON(ivB64, ctB64, key){
+    const iv = unb64(ivB64);
+    const ct = unb64(ctB64);
+    const pt = await crypto.subtle.decrypt({name:"AES-GCM", iv}, key, ct);
+    return JSON.parse(dec.decode(pt));
+  }
+
+  function emptyData(){
+    return {
+      projects: [
+        { id: "proj-default", name: "Default Project", description: "General workspace", createdAt: Date.now() }
+      ],
+      credentials: [],
+      apiKeys: [],
+      branches: [],
+      tasks: []
+    };
+  }
+
+  /* Ensure schema integrity & backwards compatibility */
+  function ensureDataSchema(data){
+    if (!data || typeof data !== "object") return emptyData();
+    if (!Array.isArray(data.projects) || data.projects.length === 0) {
+      data.projects = [
+        { id: "proj-default", name: "Default Project", description: "General workspace", createdAt: Date.now() }
+      ];
+    }
+    const defId = data.projects[0].id;
+    ["credentials", "apiKeys", "branches", "tasks"].forEach(col => {
+      if (!Array.isArray(data[col])) data[col] = [];
+      data[col].forEach(item => {
+        if (!item.projectId) item.projectId = defId;
+      });
+    });
+    return data;
+  }
+
+  /* =========================================================
+     STATE
+  ========================================================= */
+  const state = {
+    key: null,          // CryptoKey, only in memory while unlocked
+    salt: null,         // base64 salt, persisted
+    data: null,         // decrypted working data
+    tab: "credentials",
+    activeProjectId: "all", // 'all' or project.id
+    projectSearch: "",
+    env: "all",
+    search: "",
+    editingId: null,
+    editingProjectId: null,
+    defaultEnvForAdd: null
+  };
+
+  function getVault(){
+    const raw = localStorage.getItem(VAULT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }
+
+  async function persist(){
+    if(!state.key) return;
+    const { iv, ct } = await encryptJSON(state.data, state.key);
+    localStorage.setItem(VAULT_KEY, JSON.stringify({ salt: state.salt, iv, ct, v: 1, savedAt: Date.now() }));
+  }
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  function toast(msg){
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=> t.classList.remove("show"), 2200);
+  }
+
+  function getProject(id){
+    return state.data?.projects?.find(p => p.id === id) || null;
+  }
+
+  /* =========================================================
+     AUTH FLOW
+  ========================================================= */
+  const authScreen = document.getElementById("authScreen");
+  const setupPane = document.getElementById("setupPane");
+  const loginPane = document.getElementById("loginPane");
+  const appEl = document.getElementById("app");
+
+  function initAuthScreen(){
+    const vault = getVault();
+    if (vault) {
+      setupPane.style.display = "none";
+      loginPane.style.display = "block";
+      document.getElementById("loginPw").focus();
+    } else {
+      setupPane.style.display = "block";
+      loginPane.style.display = "none";
+      document.getElementById("setupPw").focus();
+    }
+  }
+
+  document.getElementById("setupBtn").addEventListener("click", async ()=>{
+    const pw = document.getElementById("setupPw").value;
+    const pw2 = document.getElementById("setupPw2").value;
+    const errEl = document.getElementById("setupError");
+    errEl.style.display = "none";
+    if (pw.length < 4) { errEl.textContent = "Use at least 4 characters."; errEl.style.display="block"; return; }
+    if (pw !== pw2) { errEl.textContent = "Passwords don't match."; errEl.style.display="block"; return; }
+
+    const salt = randBytes(16);
+    const key = await deriveKey(pw, salt);
+    state.key = key;
+    state.salt = b64(salt);
+    state.data = emptyData();
+    await persist();
+    enterApp();
+  });
+
+  document.getElementById("loginBtn").addEventListener("click", unlockVault);
+  document.getElementById("loginPw").addEventListener("keydown", e => { if(e.key==="Enter") unlockVault(); });
+  document.getElementById("setupPw2").addEventListener("keydown", e => { if(e.key==="Enter") document.getElementById("setupBtn").click(); });
+
+  async function unlockVault(){
+    const pw = document.getElementById("loginPw").value;
+    const errEl = document.getElementById("loginError");
+    errEl.style.display = "none";
+    const vault = getVault();
+    if (!vault) return;
+    try {
+      const salt = unb64(vault.salt);
+      const key = await deriveKey(pw, salt);
+      const rawData = await decryptJSON(vault.iv, vault.ct, key);
+      state.key = key;
+      state.salt = vault.salt;
+      state.data = ensureDataSchema(rawData);
+      enterApp();
+    } catch(e){
+      errEl.textContent = "Wrong password. Try again.";
+      errEl.style.display = "block";
+    }
+  }
+
+  document.getElementById("wipeLink").addEventListener("click", ()=>{
+    if (confirm("This permanently deletes everything stored in this dashboard. Continue?")) {
+      localStorage.removeItem(VAULT_KEY);
+      initAuthScreen();
+    }
+  });
+  document.getElementById("resetLink").addEventListener("click", ()=> document.getElementById("importFileInput").click());
+
+  function enterApp(){
+    authScreen.style.display = "none";
+    appEl.classList.add("visible");
+    document.getElementById("loginPw").value = "";
+    document.getElementById("setupPw").value = "";
+    document.getElementById("setupPw2").value = "";
+    render();
+  }
+
+  document.getElementById("lockBtn").addEventListener("click", ()=>{
+    state.key = null;
+    state.data = null;
+    appEl.classList.remove("visible");
+    authScreen.style.display = "flex";
+    initAuthScreen();
+  });
+
+  /* =========================================================
+     PROJECT SWITCHER LOGIC
+  ========================================================= */
+  const projectDropdownWrap = document.getElementById("projectDropdownWrap");
+  const projectSelectBtn = document.getElementById("projectSelectBtn");
+  const projectMenu = document.getElementById("projectMenu");
+  const projectMenuList = document.getElementById("projectMenuList");
+  const projectActiveName = document.getElementById("projectActiveName");
+  const projectSearchInput = document.getElementById("projectSearchInput");
+
+  projectSelectBtn.addEventListener("click", (e)=>{
+    e.stopPropagation();
+    projectDropdownWrap.classList.toggle("open");
+    if (projectDropdownWrap.classList.contains("open")) {
+      projectSearchInput.value = "";
+      state.projectSearch = "";
+      renderProjectMenu();
+      setTimeout(()=> projectSearchInput.focus(), 50);
+    }
+  });
+
+  document.addEventListener("click", (e)=>{
+    if (!e.target.closest("#projectDropdownWrap")) {
+      projectDropdownWrap.classList.remove("open");
+    }
+  });
+
+  projectSearchInput.addEventListener("input", (e)=>{
+    state.projectSearch = e.target.value.toLowerCase().trim();
+    renderProjectMenu();
+  });
+
+  function countProjectItems(projectId){
+    if (!state.data) return 0;
+    return (state.data.credentials?.filter(x=> projectId==='all'||x.projectId===projectId).length || 0) +
+           (state.data.apiKeys?.filter(x=> projectId==='all'||x.projectId===projectId).length || 0);
+  }
+
+  function renderProjectMenu(){
+    if (!state.data || !state.data.projects) return;
+    const totalAllCount = countProjectItems('all');
+    let html = `
+      <button class="project-item ${state.activeProjectId==='all'?'active':''}" data-project-id="all">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:14px;height:14px;color:var(--accent);"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span class="project-item-name">All Projects</span>
+        <span class="project-item-count">${totalAllCount}</span>
+      </button>
+      <div style="height:1px;background:var(--border);margin:3px 0;"></div>
+    `;
+
+    const filtered = state.data.projects.filter(p => {
+      if (!state.projectSearch) return true;
+      return p.name.toLowerCase().includes(state.projectSearch);
+    });
+
+    if (filtered.length === 0) {
+      html += `<div style="padding:10px 8px;font-size:11.5px;color:var(--text-faint);text-align:center;">No projects found</div>`;
+    } else {
+      html += filtered.map(p => {
+        const count = countProjectItems(p.id);
+        const isActive = state.activeProjectId === p.id;
+        return `
+          <div class="project-item ${isActive?'active':''}" data-project-id="${p.id}">
+            <svg class="project-folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span class="project-item-name" title="${esc(p.name)}">${esc(p.name)}</span>
+            <span class="project-item-count">${count}</span>
+            <div class="project-item-actions">
+              <button class="project-item-action-btn" data-edit-project="${p.id}" title="Edit project">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:11px;height:11px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              </button>
+              ${state.data.projects.length > 1 ? `
+              <button class="project-item-action-btn btn-del" data-del-project="${p.id}" title="Delete project">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:11px;height:11px;"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>` : ''}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+    projectMenuList.innerHTML = html;
+  }
+
+  projectMenuList.addEventListener("click", (e)=>{
+    const editId = e.target.closest("[data-edit-project]")?.dataset.editProject;
+    if (editId) {
+      e.stopPropagation();
+      projectDropdownWrap.classList.remove("open");
+      openProjectModal(editId);
+      return;
+    }
+    const delId = e.target.closest("[data-del-project]")?.dataset.delProject;
+    if (delId) {
+      e.stopPropagation();
+      const proj = getProject(delId);
+      if (!proj) return;
+      if (state.data.projects.length <= 1) {
+        alert("You must keep at least one project.");
+        return;
+      }
+      const other = state.data.projects.find(p => p.id !== delId);
+      if (confirm(`Delete project "${proj.name}"?\nAssociated credentials and keys will be reassigned to "${other.name}".`)) {
+        // Reassign items
+        ["credentials", "apiKeys", "branches", "tasks"].forEach(col => {
+          state.data[col].forEach(it => {
+            if (it.projectId === delId) it.projectId = other.id;
+          });
+        });
+        state.data.projects = state.data.projects.filter(p => p.id !== delId);
+        if (state.activeProjectId === delId) state.activeProjectId = other.id;
+        persist();
+        render();
+        toast("Project deleted");
+      }
+      return;
+    }
+
+    const item = e.target.closest(".project-item");
+    if (item && item.dataset.projectId) {
+      state.activeProjectId = item.dataset.projectId;
+      projectDropdownWrap.classList.remove("open");
+      render();
+    }
+  });
+
+  document.getElementById("newProjectQuickBtn").addEventListener("click", ()=> openProjectModal(null));
+  document.getElementById("addProjectMenuBtn").addEventListener("click", ()=>{
+    projectDropdownWrap.classList.remove("open");
+    openProjectModal(null);
+  });
+
+  /* =========================================================
+     PROJECT MODAL (add / edit)
+  ========================================================= */
+  const projectModal = document.getElementById("projectModal");
+  const pNameInput = document.getElementById("p_name");
+  const pDescInput = document.getElementById("p_desc");
+  const projectModalError = document.getElementById("projectModalError");
+
+  function openProjectModal(projId){
+    state.editingProjectId = projId;
+    projectModalError.style.display = "none";
+    if (projId) {
+      const p = getProject(projId);
+      document.getElementById("projectModalTitle").textContent = "Edit Project";
+      pNameInput.value = p?.name || "";
+      pDescInput.value = p?.description || "";
+    } else {
+      document.getElementById("projectModalTitle").textContent = "New Project";
+      pNameInput.value = "";
+      pDescInput.value = "";
+    }
+    projectModal.showModal();
+    pNameInput.focus();
+  }
+
+  document.getElementById("projectModalClose").addEventListener("click", ()=> projectModal.close());
+  document.getElementById("projectModalCancel").addEventListener("click", ()=> projectModal.close());
+  document.getElementById("projectModalSave").addEventListener("click", async ()=>{
+    const name = pNameInput.value.trim();
+    if (!name) {
+      projectModalError.textContent = "Project name is required.";
+      projectModalError.style.display = "block";
+      pNameInput.focus();
+      return;
+    }
+    if (state.editingProjectId) {
+      const p = getProject(state.editingProjectId);
+      if (p) {
+        p.name = name;
+        p.description = pDescInput.value.trim();
+        toast("Project updated");
+      }
+    } else {
+      const newId = "proj_" + uid();
+      state.data.projects.push({
+        id: newId,
+        name: name,
+        description: pDescInput.value.trim(),
+        createdAt: Date.now()
+      });
+      state.activeProjectId = newId;
+      toast(`Project "${name}" created`);
+    }
+    await persist();
+    projectModal.close();
+    render();
+  });
+
+  /* =========================================================
+     NAV / FILTER
+  ========================================================= */
+  const TAB_META = {
+    credentials: { title: "Credentials", sub: "Usernames, emails and passwords across your environments.", addLabel: "Add credential" },
+    apiKeys:     { title: "API Keys", sub: "Service and platform API keys by environment.", addLabel: "Add API key" },
+    branches:    { title: "Git Branches", sub: "What's in flight, and where it's headed.", addLabel: "Add branch" },
+    tasks:       { title: "Tomorrow", sub: "What you're picking up next.", addLabel: "Add task" }
+  };
+
+  document.getElementById("navList").addEventListener("click", (e)=>{
+    const btn = e.target.closest("button[data-tab]");
+    if (!btn) return;
+    state.tab = btn.dataset.tab;
+    state.search = "";
+    document.getElementById("searchInput").value = "";
+    document.querySelectorAll("#navList button").forEach(b=>b.classList.toggle("active", b===btn));
+    render();
+  });
+
+  document.getElementById("envFilter").addEventListener("click", (e)=>{
+    const btn = e.target.closest("button[data-env]");
+    if (!btn) return;
+    state.env = btn.dataset.env;
+    document.querySelectorAll("#envFilter button").forEach(b=>b.classList.toggle("active", b===btn));
+    render();
+  });
+
+  document.getElementById("searchInput").addEventListener("input", (e)=>{
+    state.search = e.target.value.toLowerCase().trim();
+    render();
+  });
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
+  function envBadge(env){
+    if (!env) return "";
+    const label = env === "dev" ? "Dev" : env === "prod" ? "Prod" : "Local";
+    return `<span class="badge badge-${env}"><span class="badge-dot"></span>${label}</span>`;
+  }
+
+  function matchesFilter(item){
+    // Project filter
+    if (state.activeProjectId !== "all" && item.projectId !== state.activeProjectId) {
+      return false;
+    }
+    // Env filter
+    if (state.env !== "all" && item.env !== state.env) {
+      return false;
+    }
+    // Search text filter
+    if (!state.search) return true;
+    const proj = getProject(item.projectId);
+    const projName = proj ? proj.name : "";
+    const hay = (Object.values(item).join(" ") + " " + projName).toLowerCase();
+    return hay.includes(state.search);
+  }
+
+  function secretCell(id, field, value){
+    const rid = `sec-${id}-${field}`;
+    return `<div class="secret-cell">
+      <span class="secret-val" id="${rid}" data-real="${encodeURIComponent(value||"")}" data-shown="0">${"•".repeat(Math.min(14, Math.max(6,(value||"").length)))}</span>
+      <button class="icon-btn" data-toggle="${rid}" title="Show/hide">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <button class="icon-btn" data-copy="${encodeURIComponent(value||"")}" title="Copy">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+      </button>
+    </div>`;
+  }
+
+  function projectTag(projectId){
+    const p = getProject(projectId);
+    const name = p ? p.name : "Default";
+    return `<span class="project-tag" title="Project: ${esc(name)}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      ${esc(name)}
+    </span>`;
+  }
+
+  function render(){
+    if (!state.data) return;
+    const meta = TAB_META[state.tab];
+
+    // Active project context
+    const currentProj = state.activeProjectId === "all" ? null : getProject(state.activeProjectId);
+    const projDisplayName = currentProj ? currentProj.name : "All Projects";
+    projectActiveName.textContent = projDisplayName;
+
+    // Breadcrumbs & Header
+    document.getElementById("crumbProject").textContent = projDisplayName;
+    document.getElementById("crumbSection").textContent = meta.title;
+    document.getElementById("mainTitle").textContent = meta.title;
+    document.getElementById("mainSub").textContent = currentProj?.description ? `${esc(currentProj.description)} — ${meta.sub}` : meta.sub;
+    document.getElementById("addBtn").textContent = "+ " + meta.addLabel;
+
+    // Filter bar display
+    const envFilterWrap = document.getElementById("envFilter");
+    const envSummaryChips = document.getElementById("envSummaryChips");
+    if (state.tab === "tasks") {
+      envFilterWrap.style.display = "none";
+      envSummaryChips.style.display = "none";
+    } else {
+      envFilterWrap.style.display = "flex";
+      envSummaryChips.style.display = "flex";
+
+      // Compute dev, prod, local counts for active project
+      const pool = state.data[state.tab].filter(it => state.activeProjectId === "all" || it.projectId === state.activeProjectId);
+      const devCount = pool.filter(it => it.env === "dev").length;
+      const prodCount = pool.filter(it => it.env === "prod").length;
+      const localCount = pool.filter(it => it.env === "local").length;
+
+      document.getElementById("summaryCountDev").textContent = devCount;
+      document.getElementById("summaryCountProd").textContent = prodCount;
+      document.getElementById("summaryCountLocal").textContent = localCount;
+    }
+
+    // Sidebar navigation badge counts (for active project)
+    ["credentials","apiKeys","branches","tasks"].forEach(t => {
+      const c = state.data[t].filter(it => state.activeProjectId === "all" || it.projectId === state.activeProjectId).length;
+      document.getElementById("count-"+t).textContent = c;
+    });
+
+    // Table Rendering
+    const head = document.getElementById("tableHead");
+    const body = document.getElementById("tableBody");
+    const isAllProjects = state.activeProjectId === "all";
+    const tab = state.tab;
+
+    // Setup headers
+    if (tab === "credentials") {
+      head.innerHTML = `<tr><th>Label</th><th>Username</th><th>Email</th><th>Password</th>${isAllProjects?'<th>Project</th>':''}<th>Env</th><th></th></tr>`;
+    } else if (tab === "apiKeys") {
+      head.innerHTML = `<tr><th>Name / Service</th><th>Key</th>${isAllProjects?'<th>Project</th>':''}<th>Env</th><th></th></tr>`;
+    } else if (tab === "branches") {
+      head.innerHTML = `<tr><th>Repository</th><th>Branch</th>${isAllProjects?'<th>Project</th>':''}<th>Env</th><th>Status</th><th></th></tr>`;
+    } else if (tab === "tasks") {
+      head.innerHTML = `<tr><th style="width:36px;"></th><th>Task</th>${isAllProjects?'<th>Project</th>':''}<th>Priority</th><th></th></tr>`;
+    }
+
+    const colCount = tab === "credentials" ? (isAllProjects ? 7 : 6) :
+                     tab === "apiKeys"     ? (isAllProjects ? 5 : 4) :
+                     tab === "branches"    ? (isAllProjects ? 6 : 5) : (isAllProjects ? 5 : 4);
+
+    // If state.env === 'all' and tab has environments (credentials, apiKeys, branches),
+    // display grouped Dev, Prod, and Local sections for clear multi-environment overview!
+    if (state.env === "all" && tab !== "tasks") {
+      const allMatching = state.data[tab].filter(matchesFilter);
+      if (allMatching.length === 0) {
+        body.innerHTML = emptyRow(colCount, meta.addLabel, currentProj?.name);
+        return;
+      }
+
+      const envs = ["dev", "prod", "local"];
+      let fullHtml = "";
+
+      envs.forEach(env => {
+        const envItems = allMatching.filter(it => it.env === env);
+        const envLabel = env === "dev" ? "Development" : env === "prod" ? "Production" : "Local";
+        const envColorClass = `badge-${env}`;
+
+        fullHtml += `
+          <tr class="env-group-row">
+            <td colspan="${colCount}">
+              <div class="env-group-bar">
+                <div class="env-group-title">
+                  <span class="badge ${envColorClass}"><span class="badge-dot"></span> ${envLabel}</span>
+                  <span class="env-group-count">${envItems.length} ${envItems.length === 1 ? 'entry' : 'entries'}</span>
+                </div>
+                <button class="env-group-add-btn" data-quickadd-env="${env}">+ Add ${envLabel}</button>
+              </div>
+            </td>
+          </tr>
+        `;
+
+        if (envItems.length === 0) {
+          fullHtml += `
+            <tr class="empty-env-sub">
+              <td colspan="${colCount}">
+                No ${envLabel.toLowerCase()} credentials yet. <button class="link-btn" data-quickadd-env="${env}">+ Add ${envLabel}</button>
+              </td>
+            </tr>
+          `;
+        } else {
+          fullHtml += envItems.map(it => renderRow(tab, it, isAllProjects)).join("");
+        }
+      });
+
+      body.innerHTML = fullHtml;
+
+    } else {
+      // Filtered to specific env or tasks
+      const items = state.data[tab].filter(matchesFilter);
+      if (items.length === 0) {
+        body.innerHTML = emptyRow(colCount, meta.addLabel, currentProj?.name);
+      } else {
+        body.innerHTML = items.map(it => renderRow(tab, it, isAllProjects)).join("");
+      }
+    }
+  }
+
+  function renderRow(tab, it, isAllProjects){
+    if (tab === "credentials") {
+      return `
+        <tr data-id="${it.id}">
+          <td><div class="cell-title">${esc(it.title)}</div>${it.notes ? `<div class="cell-sub">${esc(it.notes)}</div>`:""}</td>
+          <td class="mono">${esc(it.username)||"—"}</td>
+          <td class="mono">${esc(it.email)||"—"}</td>
+          <td>${secretCell(it.id,"password",it.password)}</td>
+          ${isAllProjects ? `<td>${projectTag(it.projectId)}</td>` : ''}
+          <td>${envBadge(it.env)}</td>
+          <td><div class="row-actions">${rowActions(it.id)}</div></td>
+        </tr>`;
+    } else if (tab === "apiKeys") {
+      return `
+        <tr data-id="${it.id}">
+          <td><div class="cell-title">${esc(it.title)}</div>${it.notes ? `<div class="cell-sub">${esc(it.notes)}</div>`:""}</td>
+          <td>${secretCell(it.id,"key",it.key)}</td>
+          ${isAllProjects ? `<td>${projectTag(it.projectId)}</td>` : ''}
+          <td>${envBadge(it.env)}</td>
+          <td><div class="row-actions">${rowActions(it.id)}</div></td>
+        </tr>`;
+    } else if (tab === "branches") {
+      return `
+        <tr data-id="${it.id}">
+          <td><div class="cell-title">${esc(it.repo)}</div>${it.notes ? `<div class="cell-sub">${esc(it.notes)}</div>`:""}</td>
+          <td class="mono">${esc(it.branch)}</td>
+          ${isAllProjects ? `<td>${projectTag(it.projectId)}</td>` : ''}
+          <td>${envBadge(it.env)}</td>
+          <td><span class="status-pill">${esc(it.status||"active")}</span></td>
+          <td><div class="row-actions">${rowActions(it.id)}</div></td>
+        </tr>`;
+    } else if (tab === "tasks") {
+      return `
+        <tr data-id="${it.id}" class="task-row ${it.done?'done':''}">
+          <td><button class="task-check ${it.done?'done':''}" data-check="${it.id}">
+            ${it.done ? '<svg viewBox="0 0 24 24" fill="none" stroke-width="3"><path d="M4 12l5 5L20 6"/></svg>' : ''}
+          </button></td>
+          <td><div class="cell-title">${esc(it.title)}</div>${it.notes ? `<div class="cell-sub">${esc(it.notes)}</div>`:""}</td>
+          ${isAllProjects ? `<td>${projectTag(it.projectId)}</td>` : ''}
+          <td><span class="priority-${it.priority||'med'}">● ${cap(it.priority||'med')}</span></td>
+          <td><div class="row-actions">${rowActions(it.id)}</div></td>
+        </tr>`;
+    }
+  }
+
+  function rowActions(id){
+    return `
+      <button class="icon-btn" data-edit="${id}" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+      <button class="icon-btn btn-danger" data-del="${id}" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>`;
+  }
+
+  function emptyRow(colspan, addLabel, projName){
+    const msg = projName ? `No entries yet for ${esc(projName)}.` : `Nothing here yet.`;
+    return `<tr><td colspan="${colspan}"><div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+      <p>${msg}</p>
+      <button class="btn btn-primary" id="emptyAddBtn">+ ${addLabel}</button>
+    </div></td></tr>`;
+  }
+
+  function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+  function cap(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : ""; }
+
+  document.getElementById("tableBody").addEventListener("click", (e)=>{
+    const toggleId = e.target.closest("[data-toggle]")?.dataset.toggle;
+    if (toggleId) {
+      const span = document.getElementById(toggleId);
+      const shown = span.dataset.shown === "1";
+      if (shown) {
+        span.dataset.shown = "0";
+        span.textContent = "•".repeat(Math.min(14, Math.max(6, decodeURIComponent(span.dataset.real).length)));
+      } else {
+        span.dataset.shown = "1";
+        span.textContent = decodeURIComponent(span.dataset.real) || "—";
+      }
+      return;
+    }
+    const copyVal = e.target.closest("[data-copy]")?.dataset.copy;
+    if (copyVal !== undefined) {
+      navigator.clipboard.writeText(decodeURIComponent(copyVal)).then(()=> toast("Copied to clipboard"));
+      return;
+    }
+    const quickEnv = e.target.closest("[data-quickadd-env]")?.dataset.quickaddEnv;
+    if (quickEnv) {
+      openModal(null, quickEnv);
+      return;
+    }
+    const editId = e.target.closest("[data-edit]")?.dataset.edit;
+    if (editId) { openModal(editId); return; }
+
+    const delId = e.target.closest("[data-del]")?.dataset.del;
+    if (delId) {
+      if (confirm("Delete this entry? This can't be undone.")) {
+        state.data[state.tab] = state.data[state.tab].filter(x=>x.id!==delId);
+        persist(); render(); toast("Deleted");
+      }
+      return;
+    }
+    const checkId = e.target.closest("[data-check]")?.dataset.check;
+    if (checkId) {
+      const item = state.data.tasks.find(x=>x.id===checkId);
+      if (item) {
+        item.done = !item.done;
+        persist(); render();
+      }
+      return;
+    }
+    if (e.target.id === "emptyAddBtn") openModal(null);
+  });
+
+  document.getElementById("addBtn").addEventListener("click", ()=> openModal(null));
+
+  /* =========================================================
+     ENTRY MODAL (add / edit)
+  ========================================================= */
+  const entryModal = document.getElementById("entryModal");
+  const modalBody = document.getElementById("modalBody");
+
+  function projectOptionsHtml(selectedProjectId){
+    if (!state.data?.projects) return "";
+    const effectiveSelected = selectedProjectId || (state.activeProjectId !== "all" ? state.activeProjectId : state.data.projects[0]?.id);
+    return `
+      <div class="field">
+        <label>Project</label>
+        <div style="display:flex;gap:8px;">
+          <select class="env-select" id="f_project" style="flex:1;">
+            ${state.data.projects.map(p => `
+              <option value="${p.id}" ${p.id === effectiveSelected ? "selected" : ""}>${esc(p.name)}</option>
+            `).join("")}
+          </select>
+          <button type="button" class="btn" id="f_newProjInlineBtn" title="Create a new project" style="white-space:nowrap;padding:0 10px;">+ Project</button>
+        </div>
+      </div>
+    `;
+  }
+
+  const FORMS = {
+    credentials: (it, defaultEnv) => `
+      ${projectOptionsHtml(it?.projectId)}
+      <div class="field"><label>Label *</label><input id="f_title" value="${escAttr(it?.title)}" placeholder="e.g. Postgres admin, Staging Admin UI"></div>
+      <div class="field-row">
+        <div class="field"><label>Username</label><input id="f_username" value="${escAttr(it?.username)}"></div>
+        <div class="field"><label>Email</label><input id="f_email" value="${escAttr(it?.email)}"></div>
+      </div>
+      <div class="field"><label>Password</label><div class="pw-field-wrap"><input type="password" id="f_password" value="${escAttr(it?.password)}">
+        <button type="button" class="icon-btn" id="pwReveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+      <div class="field"><label>Environment</label>${envSelect(it?.env || defaultEnv)}</div>
+      <div class="field"><label>Notes / Database / Host</label><textarea id="f_notes" placeholder="e.g. Host: db.internal:5432, DB: dev_app">${escAttr(it?.notes)}</textarea></div>`,
+    apiKeys: (it, defaultEnv) => `
+      ${projectOptionsHtml(it?.projectId)}
+      <div class="field"><label>Name / Service *</label><input id="f_title" value="${escAttr(it?.title)}" placeholder="e.g. Stripe secret key, Auth0 Client Secret"></div>
+      <div class="field"><label>Key / Secret</label><div class="pw-field-wrap"><input type="password" id="f_key" value="${escAttr(it?.key)}">
+        <button type="button" class="icon-btn" id="pwReveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+      <div class="field"><label>Environment</label>${envSelect(it?.env || defaultEnv)}</div>
+      <div class="field"><label>Notes</label><textarea id="f_notes">${escAttr(it?.notes)}</textarea></div>`,
+    branches: (it, defaultEnv) => `
+      ${projectOptionsHtml(it?.projectId)}
+      <div class="field"><label>Repository *</label><input id="f_repo" value="${escAttr(it?.repo)}" placeholder="e.g. org/service-api"></div>
+      <div class="field"><label>Branch Name *</label><input id="f_branch" class="mono" value="${escAttr(it?.branch)}" placeholder="e.g. feature/auth-flow"></div>
+      <div class="field-row">
+        <div class="field"><label>Environment</label>${envSelect(it?.env || defaultEnv)}</div>
+        <div class="field"><label>Status</label><select class="env-select" id="f_status">
+          ${["active","in review","merged","stale"].map(s=>`<option value="${s}" ${it?.status===s?"selected":""}>${cap(s)}</option>`).join("")}
+        </select></div>
+      </div>
+      <div class="field"><label>Notes</label><textarea id="f_notes">${escAttr(it?.notes)}</textarea></div>`,
+    tasks: (it) => `
+      ${projectOptionsHtml(it?.projectId)}
+      <div class="field"><label>Task *</label><input id="f_title" value="${escAttr(it?.title)}" placeholder="e.g. Review PR #482"></div>
+      <div class="field"><label>Priority</label><select class="env-select" id="f_priority">
+        ${["low","med","high"].map(p=>`<option value="${p}" ${it?.priority===p?"selected":""}>${cap(p)}</option>`).join("")}
+      </select></div>
+      <div class="field"><label>Notes</label><textarea id="f_notes">${escAttr(it?.notes)}</textarea></div>`
+  };
+
+  function envSelect(current){
+    const selectedEnv = current || (state.env !== "all" ? state.env : "dev");
+    return `<select class="env-select" id="f_env">
+      ${["dev","prod","local"].map(e=>`<option value="${e}" ${selectedEnv===e?"selected":""}>${cap(e)}</option>`).join("")}
+    </select>`;
+  }
+  function escAttr(s){ return esc(s).replace(/\n/g,"&#10;"); }
+
+  function openModal(id, defaultEnv){
+    state.editingId = id;
+    state.defaultEnvForAdd = defaultEnv || null;
+    const meta = TAB_META[state.tab];
+    const item = id ? state.data[state.tab].find(x=>x.id===id) : null;
+    document.getElementById("modalTitle").textContent = id ? `Edit ${meta.title.toLowerCase().replace(/s$/,'')}` : meta.addLabel;
+    modalBody.innerHTML = FORMS[state.tab](item, defaultEnv);
+
+    const reveal = document.getElementById("pwReveal");
+    if (reveal) reveal.addEventListener("click", ()=>{
+      const inp = reveal.previousElementSibling;
+      inp.type = inp.type === "password" ? "text" : "password";
+    });
+
+    const newProjBtn = document.getElementById("f_newProjInlineBtn");
+    if (newProjBtn) {
+      newProjBtn.addEventListener("click", ()=>{
+        const name = prompt("Enter new project name:");
+        if (name && name.trim()) {
+          const newId = "proj_" + uid();
+          state.data.projects.push({ id: newId, name: name.trim(), createdAt: Date.now() });
+          persist();
+          const projSelect = document.getElementById("f_project");
+          if (projSelect) {
+            const opt = document.createElement("option");
+            opt.value = newId;
+            opt.textContent = name.trim();
+            opt.selected = true;
+            projSelect.appendChild(opt);
+          }
+          toast(`Project "${name.trim()}" added`);
+        }
+      });
+    }
+
+    entryModal.showModal();
+  }
+
+  document.getElementById("modalClose").addEventListener("click", ()=> entryModal.close());
+  document.getElementById("modalCancel").addEventListener("click", ()=> entryModal.close());
+
+  document.getElementById("modalSave").addEventListener("click", ()=>{
+    const tab = state.tab;
+    const projectId = val("f_project") || state.data.projects[0]?.id;
+    let obj = {};
+
+    if (tab === "credentials") {
+      obj = { projectId, title: val("f_title"), username: val("f_username"), email: val("f_email"), password: val("f_password"), env: val("f_env"), notes: val("f_notes") };
+      if (!obj.title) return alertField("f_title");
+    } else if (tab === "apiKeys") {
+      obj = { projectId, title: val("f_title"), key: val("f_key"), env: val("f_env"), notes: val("f_notes") };
+      if (!obj.title) return alertField("f_title");
+    } else if (tab === "branches") {
+      obj = { projectId, repo: val("f_repo"), branch: val("f_branch"), env: val("f_env"), status: val("f_status"), notes: val("f_notes") };
+      if (!obj.repo || !obj.branch) return alertField(obj.repo ? "f_branch" : "f_repo");
+    } else if (tab === "tasks") {
+      obj = { projectId, title: val("f_title"), priority: val("f_priority"), notes: val("f_notes"), done: false };
+      if (!obj.title) return alertField("f_title");
+    }
+
+    if (state.editingId) {
+      const idx = state.data[tab].findIndex(x=>x.id===state.editingId);
+      obj.id = state.editingId;
+      obj.done = obj.done!==undefined ? obj.done : state.data[tab][idx].done;
+      state.data[tab][idx] = obj;
+      toast("Saved");
+    } else {
+      obj.id = uid();
+      state.data[tab].unshift(obj);
+      toast("Added");
+    }
+    persist();
+    entryModal.close();
+    render();
+  });
+
+  function val(id){ const el = document.getElementById(id); return el ? el.value.trim() : ""; }
+  function alertField(id){ const el = document.getElementById(id); if(el){ el.style.borderColor = "var(--danger)"; el.focus(); } }
+
+  /* =========================================================
+     SETTINGS: export / import / change password / wipe
+  ========================================================= */
+  const settingsToggle = document.getElementById("settingsToggle");
+  const settingsPanel = document.getElementById("settingsPanel");
+  settingsToggle.addEventListener("click", ()=> settingsPanel.classList.toggle("open"));
+  document.addEventListener("click", (e)=>{
+    if (!e.target.closest(".settings-menu")) settingsPanel.classList.remove("open");
+  });
+
+  document.getElementById("exportBtn").addEventListener("click", ()=>{
+    const vault = getVault();
+    const blob = new Blob([JSON.stringify(vault, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `forge-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast("Backup downloaded (still encrypted with your password)");
+    settingsPanel.classList.remove("open");
+  });
+
+  document.getElementById("importBtn").addEventListener("click", ()=> document.getElementById("importFileInput").click());
+  document.getElementById("importFileInput").addEventListener("change", (e)=>{
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (!parsed.salt || !parsed.iv || !parsed.ct) throw new Error("bad format");
+        if (!confirm("Importing will replace the data currently stored in this browser with the backup file. Continue?")) return;
+        localStorage.setItem(VAULT_KEY, JSON.stringify(parsed));
+        toast("Backup imported — enter its password to unlock");
+        state.key = null; state.data = null;
+        appEl.classList.remove("visible");
+        authScreen.style.display = "flex";
+        initAuthScreen();
+      } catch(err){
+        toast("That file doesn't look like a Forge backup");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  });
+
+  document.getElementById("wipeAllBtn").addEventListener("click", ()=>{
+    if (confirm("This permanently erases everything in this dashboard on this device. This cannot be undone. Continue?")) {
+      localStorage.removeItem(VAULT_KEY);
+      state.key = null; state.data = null;
+      appEl.classList.remove("visible");
+      authScreen.style.display = "flex";
+      initAuthScreen();
+      toast("All data erased");
+    }
+    settingsPanel.classList.remove("open");
+  });
+
+  const pwModal = document.getElementById("pwModal");
+  document.getElementById("changePwBtn").addEventListener("click", ()=>{
+    document.getElementById("curPw").value = "";
+    document.getElementById("newPw").value = "";
+    document.getElementById("newPw2").value = "";
+    document.getElementById("pwModalError").style.display = "none";
+    pwModal.showModal();
+    settingsPanel.classList.remove("open");
+  });
+  document.getElementById("pwModalClose").addEventListener("click", ()=> pwModal.close());
+  document.getElementById("pwModalCancel").addEventListener("click", ()=> pwModal.close());
+  document.getElementById("pwModalSave").addEventListener("click", async ()=>{
+    const errEl = document.getElementById("pwModalError");
+    errEl.style.display = "none";
+    const cur = document.getElementById("curPw").value;
+    const n1 = document.getElementById("newPw").value;
+    const n2 = document.getElementById("newPw2").value;
+    const vault = getVault();
+    try {
+      const salt = unb64(vault.salt);
+      const key = await deriveKey(cur, salt);
+      await decryptJSON(vault.iv, vault.ct, key); // verify current password
+    } catch(e){
+      errEl.textContent = "Current password is incorrect.";
+      errEl.style.display = "block";
+      return;
+    }
+    if (n1.length < 4) { errEl.textContent = "New password must be at least 4 characters."; errEl.style.display="block"; return; }
+    if (n1 !== n2) { errEl.textContent = "New passwords don't match."; errEl.style.display="block"; return; }
+
+    const newSalt = randBytes(16);
+    const newKey = await deriveKey(n1, newSalt);
+    state.key = newKey;
+    state.salt = b64(newSalt);
+    await persist();
+    pwModal.close();
+    toast("Master password updated");
+  });
+
+  /* =========================================================
+     INIT
+  ========================================================= */
+  initAuthScreen();
+})();
+</script>
+</body>
+</html>
